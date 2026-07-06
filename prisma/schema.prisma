@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  color       String   @default("#7c3aed") // cor do nicho no dashboard
+  waSession   String?  // path relativo da sessão Baileys
+  waStatus    String   @default("disconnected") // disconnected | connecting | connected
+  waQr        String?  // QR code base64 para conexão
+  settings    Json?    @default("{}") // Configurações de automação (intervalos, autoApprove, etc)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  platforms WorkspacePlatform[]
+  groups    WaGroup[]
+  offers    Offer[]
+}
+
+model WorkspacePlatform {
+  id          String   @id @default(cuid())
+  workspaceId String
+  platform    String   // "mercadolivre" | "shopee"
+  enabled     Boolean  @default(true)
+  config      Json     // tokens, tag de afiliado, filtros, etc.
+  lastSyncAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform])
+}
+
+model WaGroup {
+  id          String  @id @default(cuid())
+  workspaceId String
+  groupJid    String  // JID do grupo no WhatsApp
+  name        String
+  active      Boolean @default(true) // se deve receber ofertas aprovadas
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, groupJid])
+}
+
+model Offer {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  platform      String   // "mercadolivre" | "shopee"
+  externalId    String   // ID da oferta na plataforma original
+  title         String
+  price         Float
+  originalPrice Float?
+  discount      Int?     // % de desconto
+  imageUrl      String?
+  affiliateUrl  String   // URL com tag de afiliado
+  description   String?
+  category      String?
+  status        String   @default("pending") // pending | approved | rejected | sent
+  sentAt        DateTime?
+  sentGroups    String[] // JIDs dos grupos onde foi enviada
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([platform, externalId, workspaceId])
+  @@index([workspaceId, status])
+}
+
+model AppConfig {
+  key   String @id
+  value String
+}

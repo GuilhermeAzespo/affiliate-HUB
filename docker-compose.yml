@@ -1,0 +1,56 @@
+version: '3.9'
+
+services:
+  app:
+    build: .
+    container_name: afiliadobot
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://afiliadobot:${DB_PASSWORD}@db:5432/afiliadobot
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET}
+      ML_CLIENT_ID: ${ML_CLIENT_ID}
+      ML_CLIENT_SECRET: ${ML_CLIENT_SECRET}
+      ML_REDIRECT_URI: ${ML_REDIRECT_URI}
+      ML_AFFILIATE_TAG: ${ML_AFFILIATE_TAG}
+      SHOPEE_APP_ID: ${SHOPEE_APP_ID}
+      SHOPEE_SECRET: ${SHOPEE_SECRET}
+      SHOPEE_AFFILIATE_TAG: ${SHOPEE_AFFILIATE_TAG}
+      NODE_ENV: production
+      APP_URL: ${APP_URL}
+      PORT: 3000
+    volumes:
+      - auth_state:/app/auth_state
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - afiliadobot_net
+
+  db:
+    image: postgres:16-alpine
+    container_name: afiliadobot_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: afiliadobot
+      POSTGRES_USER: afiliadobot
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U afiliadobot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - afiliadobot_net
+
+volumes:
+  pg_data:
+  auth_state:
+
+networks:
+  afiliadobot_net:
+    driver: bridge
