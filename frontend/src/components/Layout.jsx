@@ -22,7 +22,7 @@ export default function Layout({ children, workspaces = [] }) {
         <div className="sidebar-logo">
           <div className="sidebar-logo-icon">🤖</div>
           <div className="sidebar-logo-text">
-            Afiliado<span>Bot</span>
+            Afiliado<span>HUB</span>
           </div>
         </div>
 
