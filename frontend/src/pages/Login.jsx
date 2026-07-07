@@ -26,7 +26,7 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--sp-6)' }}>
-          <img src="/logo.png" alt="Logo" style={{ width: 64, height: 64, objectFit: 'contain' }} />
+          <img src="/logo.png" alt="Logo" style={{ width: 'auto', height: 120, objectFit: 'contain' }} />
         </div>
         <h1 className="login-title">Afiliado<span style={{ color: 'var(--c-purple-light)' }}>HUB</span></h1>
         <p className="login-subtitle">
