@@ -23,7 +23,7 @@ const PLATFORMS_INFO = {
           { value: 'Informática', label: 'Informática' },
           { value: 'Moda', label: 'Moda' },
           { value: 'Beleza e Cuidado Pessoal', label: 'Beleza e Cuidado Pessoal' },
-          { value: 'Casa, Móveis e Decoração', label: 'Casa, Móveis e Decoração' },
+          { value: 'Casa e Decoração', label: 'Casa e Decoração' },
           { value: 'Eletrodomésticos', label: 'Eletrodomésticos' },
           { value: 'Esportes e Fitness', label: 'Esportes e Fitness' }
         ]
@@ -55,7 +55,7 @@ const PLATFORMS_INFO = {
           { value: 'Informática', label: 'Informática' },
           { value: 'Moda', label: 'Moda' },
           { value: 'Beleza e Cuidado Pessoal', label: 'Beleza e Cuidado Pessoal' },
-          { value: 'Casa, Móveis e Decoração', label: 'Casa, Móveis e Decoração' },
+          { value: 'Casa e Decoração', label: 'Casa e Decoração' },
           { value: 'Eletrodomésticos', label: 'Eletrodomésticos' },
           { value: 'Esportes e Fitness', label: 'Esportes e Fitness' }
         ]
