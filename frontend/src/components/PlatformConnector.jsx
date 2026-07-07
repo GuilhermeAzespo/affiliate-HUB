@@ -12,7 +12,23 @@ const PLATFORMS_INFO = {
     description: 'Conecte via OAuth para buscar e anunciar produtos do ML Afiliados.',
     fields: [
       { key: 'affiliateTag', label: 'Tag de Afiliado (matt_word)', placeholder: 'ex: seunome-20' },
-      { key: 'filters.keyword', label: 'Palavra-chave (opcional)', placeholder: 'ex: fone bluetooth' },
+      { 
+        key: 'filters.keyword', 
+        label: 'Palavra-chave (opcional)', 
+        type: 'select',
+        options: [
+          { value: '', label: 'Nenhuma (Buscar tudo)' },
+          { value: 'Produtos em Alta', label: 'Produtos em Alta' },
+          { value: 'Eletrônicos', label: 'Eletrônicos' },
+          { value: 'Celulares e Smartphones', label: 'Celulares e Smartphones' },
+          { value: 'Informática', label: 'Informática' },
+          { value: 'Moda', label: 'Moda' },
+          { value: 'Beleza e Cuidado Pessoal', label: 'Beleza e Cuidado Pessoal' },
+          { value: 'Casa, Móveis e Decoração', label: 'Casa, Móveis e Decoração' },
+          { value: 'Eletrodomésticos', label: 'Eletrodomésticos' },
+          { value: 'Esportes e Fitness', label: 'Esportes e Fitness' }
+        ]
+      },
       { key: 'filters.categoryId', label: 'Categoria ML (opcional)', placeholder: 'ex: MLB1051' },
       { key: 'filters.minDiscount', label: 'Desconto mínimo (%)', placeholder: 'ex: 20', type: 'number' },
     ],
@@ -29,7 +45,23 @@ const PLATFORMS_INFO = {
       { key: 'appId', label: 'App ID (Shopee Affiliate)', placeholder: 'Seu App ID' },
       { key: 'secret', label: 'Secret Key', placeholder: 'Sua Secret Key', type: 'password' },
       { key: 'affiliateTag', label: 'Sub ID (tag de rastreio)', placeholder: 'ex: meuchannel' },
-      { key: 'filters.keyword', label: 'Palavra-chave (opcional)', placeholder: 'ex: celular' },
+      { 
+        key: 'filters.keyword', 
+        label: 'Palavra-chave (opcional)', 
+        type: 'select',
+        options: [
+          { value: '', label: 'Nenhuma (Buscar tudo)' },
+          { value: 'Produtos em Alta', label: 'Produtos em Alta' },
+          { value: 'Eletrônicos', label: 'Eletrônicos' },
+          { value: 'Celulares e Smartphones', label: 'Celulares e Smartphones' },
+          { value: 'Informática', label: 'Informática' },
+          { value: 'Moda', label: 'Moda' },
+          { value: 'Beleza e Cuidado Pessoal', label: 'Beleza e Cuidado Pessoal' },
+          { value: 'Casa, Móveis e Decoração', label: 'Casa, Móveis e Decoração' },
+          { value: 'Eletrodomésticos', label: 'Eletrodomésticos' },
+          { value: 'Esportes e Fitness', label: 'Esportes e Fitness' }
+        ]
+      },
       { key: 'filters.minDiscount', label: 'Desconto mínimo (%)', placeholder: 'ex: 15', type: 'number' },
     ],
     requiresOAuth: false,
@@ -190,15 +222,30 @@ export default function PlatformConnector({ workspace, onRefresh }) {
                 {info.fields.map((field) => (
                   <div key={field.key} className="form-group">
                     <label className="form-label">{field.label}</label>
-                    <input
-                      className="form-input"
-                      type={field.type ?? 'text'}
-                      placeholder={field.type === 'password' && connected ? '•••••••••••••••• (Salva)' : field.placeholder}
-                      value={formData[field.key] ?? ''}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      autoComplete="new-password"
-                      name={`field_${field.key.replace('.', '_')}`}
-                    />
+                    {field.type === 'select' ? (
+                      <select
+                        className="form-input"
+                        value={formData[field.key] ?? ''}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                        name={`field_${field.key.replace('.', '_')}`}
+                      >
+                        {field.options.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="form-input"
+                        type={field.type ?? 'text'}
+                        placeholder={field.type === 'password' && connected ? '•••••••••••••••• (Salva)' : field.placeholder}
+                        value={formData[field.key] ?? ''}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                        autoComplete="new-password"
+                        name={`field_${field.key.replace('.', '_')}`}
+                      />
+                    )}
                   </div>
                 ))}
                 <div className="flex gap-3 mt-2">
