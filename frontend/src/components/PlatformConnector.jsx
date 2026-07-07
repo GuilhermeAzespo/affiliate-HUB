@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { useConfirm } from '../contexts/ConfirmContext.jsx';
 
 const PLATFORMS_INFO = {
   mercadolivre: {
@@ -72,6 +73,7 @@ export default function PlatformConnector({ workspace, onRefresh }) {
   const [formData, setFormData] = useState({});
   const [saving, setSaving] = useState(false);
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
 
   async function loadPlatforms() {
     try {
@@ -141,7 +143,7 @@ export default function PlatformConnector({ workspace, onRefresh }) {
   }
 
   async function handleRemove(p) {
-    if (!confirm(`Remover ${PLATFORMS_INFO[p.platform]?.name}?`)) return;
+    if (!(await confirm({ title: 'Remover Plataforma', message: `Remover a integração com ${PLATFORMS_INFO[p.platform]?.name}? Você deixará de receber ofertas dela.`, isDanger: true }))) return;
     try {
       await api.platforms.remove(workspace.id, p.id);
       addToast('Plataforma removida', 'info');
