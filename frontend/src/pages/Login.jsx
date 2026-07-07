@@ -26,7 +26,7 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">🤖</div>
-        <h1 className="login-title">AfiliadoBot</h1>
+        <h1 className="login-title">Afiliado<span style={{ color: 'var(--c-purple-light)' }}>HUB</span></h1>
         <p className="login-subtitle">
           Plataforma de curadoria e disparo de ofertas
         </p>
