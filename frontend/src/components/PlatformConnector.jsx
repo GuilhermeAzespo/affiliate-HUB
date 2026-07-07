@@ -14,10 +14,9 @@ const PLATFORMS_INFO = {
       { key: 'affiliateTag', label: 'Tag de Afiliado (matt_word)', placeholder: 'ex: seunome-20' },
       { 
         key: 'filters.keyword', 
-        label: 'Palavra-chave (opcional)', 
-        type: 'select',
+        label: 'Palavra-chave (Múltipla escolha)', 
+        type: 'multiselect',
         options: [
-          { value: '', label: 'Nenhuma (Buscar tudo)' },
           { value: 'Produtos em Alta', label: 'Produtos em Alta' },
           { value: 'Eletrônicos', label: 'Eletrônicos' },
           { value: 'Celulares e Smartphones', label: 'Celulares e Smartphones' },
@@ -47,10 +46,9 @@ const PLATFORMS_INFO = {
       { key: 'affiliateTag', label: 'Sub ID (tag de rastreio)', placeholder: 'ex: meuchannel' },
       { 
         key: 'filters.keyword', 
-        label: 'Palavra-chave (opcional)', 
-        type: 'select',
+        label: 'Palavra-chave (Múltipla escolha)', 
+        type: 'multiselect',
         options: [
-          { value: '', label: 'Nenhuma (Buscar tudo)' },
           { value: 'Produtos em Alta', label: 'Produtos em Alta' },
           { value: 'Eletrônicos', label: 'Eletrônicos' },
           { value: 'Celulares e Smartphones', label: 'Celulares e Smartphones' },
@@ -222,7 +220,33 @@ export default function PlatformConnector({ workspace, onRefresh }) {
                 {info.fields.map((field) => (
                   <div key={field.key} className="form-group">
                     <label className="form-label">{field.label}</label>
-                    {field.type === 'select' ? (
+                    {field.type === 'multiselect' ? (
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {field.options.map((opt) => {
+                          const currentVals = formData[field.key] ? formData[field.key].split(', ') : [];
+                          const isChecked = currentVals.includes(opt.value);
+                          return (
+                            <label key={opt.value} className="flex items-center gap-2 text-sm" style={{ background: isChecked ? 'var(--c-primary-soft)' : 'var(--c-surface)', border: isChecked ? '1px solid var(--c-primary)' : '1px solid var(--c-border)', padding: '6px 12px', borderRadius: '16px', cursor: 'pointer', transition: 'all 0.2s', userSelect: 'none' }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                style={{ margin: 0, accentColor: 'var(--c-primary)', cursor: 'pointer' }}
+                                onChange={(e) => {
+                                  let newVals = [...currentVals];
+                                  if (e.target.checked) {
+                                    newVals.push(opt.value);
+                                  } else {
+                                    newVals = newVals.filter(v => v !== opt.value);
+                                  }
+                                  setFormData((prev) => ({ ...prev, [field.key]: newVals.length > 0 ? newVals.join(', ') : '' }));
+                                }}
+                              />
+                              {opt.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : field.type === 'select' ? (
                       <select
                         className="form-input"
                         value={formData[field.key] ?? ''}
