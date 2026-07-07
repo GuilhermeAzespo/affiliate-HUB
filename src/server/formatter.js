@@ -57,7 +57,12 @@ export function formatOffer(offer) {
   }
 
   lines.push('');
-  lines.push(`🛒 ${offer.affiliateUrl}`);
+  if (offer.platform === 'mercadolivre') {
+    lines.push('📦 Via Mercado Livre');
+  } else if (offer.platform === 'shopee') {
+    lines.push('📦 Via Shopee');
+  }
+  lines.push(`🛒 Link: ${offer.affiliateUrl}`);
   lines.push('');
   lines.push(pickClosing());
   lines.push(`⚠️ _Preço pode mudar a qualquer momento!_`);
@@ -80,7 +85,12 @@ export function formatOfferCompact(offer) {
     lines.push(`💰 *${brl(offer.price)}*`);
   }
 
-  lines.push(`🛒 ${offer.affiliateUrl}`);
+  if (offer.platform === 'mercadolivre') {
+    lines.push(`📦 Via Mercado Livre`);
+  } else if (offer.platform === 'shopee') {
+    lines.push(`📦 Via Shopee`);
+  }
+  lines.push(`🛒 Link: ${offer.affiliateUrl}`);
   lines.push(`⚠️ _Preços sujeitos a alteração_`);
 
   return lines.join('\n');
