@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { useConfirm } from '../contexts/ConfirmContext.jsx';
 
 const brl = (n) => Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -23,6 +24,7 @@ export default function OffersInbox({ workspaceId }) {
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
 
   async function load() {
     setLoading(true);
@@ -57,7 +59,7 @@ export default function OffersInbox({ workspaceId }) {
   }
 
   async function handleSend(offer) {
-    if (!confirm('Enviar esta oferta para todos os grupos ativos?')) return;
+    if (!(await confirm({ title: 'Enviar Oferta', message: 'Tem certeza que deseja enviar esta oferta para todos os grupos ativos?' }))) return;
     try {
       const result = await api.offers.send(workspaceId, offer.id);
       addToast(`✅ Enviada para ${result.sentGroups?.length ?? 0} grupo(s)!`, 'success');
