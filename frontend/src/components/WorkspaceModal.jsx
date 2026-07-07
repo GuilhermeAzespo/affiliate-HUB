@@ -4,8 +4,12 @@ import { useToast } from '../contexts/ToastContext.jsx';
 
 const COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#db2777', '#0891b2'];
 
-export default function WorkspaceModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ name: '', description: '', color: COLORS[0] });
+export default function WorkspaceModal({ onClose, onCreated, workspace = null }) {
+  const [form, setForm] = useState({ 
+    name: workspace?.name ?? '', 
+    description: workspace?.description ?? '', 
+    color: workspace?.color ?? COLORS[0] 
+  });
   const [saving, setSaving] = useState(false);
   const { addToast } = useToast();
 
@@ -18,8 +22,13 @@ export default function WorkspaceModal({ onClose, onCreated }) {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      await api.workspaces.create(form);
-      addToast('Workspace criado!', 'success');
+      if (workspace) {
+        await api.workspaces.update(workspace.id, form);
+        addToast('Workspace atualizado!', 'success');
+      } else {
+        await api.workspaces.create(form);
+        addToast('Workspace criado!', 'success');
+      }
       onCreated();
     } catch (err) {
       addToast(err.message, 'error');
@@ -31,7 +40,7 @@ export default function WorkspaceModal({ onClose, onCreated }) {
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <h2 className="modal-title">Novo Workspace</h2>
+        <h2 className="modal-title">{workspace ? 'Editar Workspace' : 'Novo Workspace'}</h2>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
           <div className="form-group">
@@ -85,7 +94,7 @@ export default function WorkspaceModal({ onClose, onCreated }) {
               style={{ justifyContent: 'center' }}
             >
               {saving ? <span className="spinner" /> : null}
-              {saving ? ' Criando...' : '✅ Criar Workspace'}
+              {saving ? ' Salvando...' : (workspace ? '💾 Salvar Alterações' : '✅ Criar Workspace')}
             </button>
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               Cancelar
