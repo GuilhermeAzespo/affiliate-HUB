@@ -1,4 +1,4 @@
-# 🤖 AfiliadoBot — Affiliate HUB
+# 🤖 Afiliado HUB
 
 Plataforma de curadoria semi-automática e disparo de ofertas de afiliados (**Mercado Livre** + **Shopee**) via **WhatsApp**, com dashboard moderno multi-workspace/nicho.
 
