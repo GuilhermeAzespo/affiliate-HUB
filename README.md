@@ -1,4 +1,4 @@
-# 🤖 Afiliado HUB
+# 🤖 AfiliadoBot — Affiliate HUB
 
 Plataforma de curadoria semi-automática e disparo de ofertas de afiliados (**Mercado Livre** + **Shopee**) via **WhatsApp**, com dashboard moderno multi-workspace/nicho.
 
@@ -11,9 +11,12 @@ Plataforma de curadoria semi-automática e disparo de ofertas de afiliados (**Me
 - 💬 **WhatsApp Multi-sessão** — Baileys, 1 número por workspace/nicho
 - 📬 **Inbox de Curadoria** — Aprove/rejeite cada oferta antes de enviar
 - 📤 **Disparo Assistido** — Envia somente para grupos que você cadastrou
-- 🏢 **Multi-workspace** — Vários nichos isolados (Tech, Beauty, Casa…)
+- 🏢 **Multi-workspace** — Vários nichos isolados (Tech, Beauty, Casa…), com edição completa (nome, descrição, cor)
 - 🔄 **Worker Automático** — Busca ofertas a cada 30 minutos via cron
 - ✅ **Conformidade ML** — Sem auto-post, com #publi, tag oficial (sem shortener)
+- 🏷️ **Identificação de Origem** — Mensagens enviadas contêm a etiqueta automática "Via Mercado Livre" ou "Via Shopee"
+- 🎨 **Interface Premium** — Painel centralizado, responsivo, logos dinâmicas e favicons com auto-ajuste de proporção
+- 🔒 **Segurança Reforçada** — Proteção nativa contra Força Bruta (bloqueio por IP), DDoS, CSRF e injeção de cabeçalhos maliciosos
 
 ---
 
@@ -26,6 +29,7 @@ Plataforma de curadoria semi-automática e disparo de ofertas de afiliados (**Me
 | WhatsApp    | @whiskeysockets/baileys               |
 | Frontend    | React 18 + Vite + CSS Dark Mode       |
 | Tempo real  | WebSocket nativo                      |
+| Segurança   | Helmet + Express Rate Limit           |
 | Deploy      | Docker — EasyPanel / VPS              |
 
 ---
