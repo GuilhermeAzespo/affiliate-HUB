@@ -13,22 +13,7 @@ const PLATFORMS_INFO = {
     description: 'Conecte via OAuth para buscar e anunciar produtos do ML Afiliados.',
     fields: [
       { key: 'affiliateTag', label: 'Tag de Afiliado (matt_word)', placeholder: 'ex: seunome-20' },
-      { 
-        key: 'filters.keyword', 
-        label: 'Palavra-chave (Múltipla escolha)', 
-        type: 'multiselect',
-        options: [
-          { value: 'Produtos em Alta', label: 'Produtos em Alta' },
-          { value: 'Eletrônicos', label: 'Eletrônicos' },
-          { value: 'Celulares e Smartphones', label: 'Celulares e Smartphones' },
-          { value: 'Informática', label: 'Informática' },
-          { value: 'Moda', label: 'Moda' },
-          { value: 'Beleza e Cuidado Pessoal', label: 'Beleza e Cuidado Pessoal' },
-          { value: 'Casa e Decoração', label: 'Casa e Decoração' },
-          { value: 'Eletrodomésticos', label: 'Eletrodomésticos' },
-          { value: 'Esportes e Fitness', label: 'Esportes e Fitness' }
-        ]
-      },
+      { key: 'filters.keyword', label: 'Palavras-chave (separadas por vírgula)', placeholder: 'ex: iphone, notebook, fralda' },
       { key: 'filters.categoryId', label: 'Categoria ML (opcional)', placeholder: 'ex: MLB1051' },
       { key: 'filters.minDiscount', label: 'Desconto mínimo (%)', placeholder: 'ex: 20', type: 'number' },
     ],
@@ -45,22 +30,7 @@ const PLATFORMS_INFO = {
       { key: 'appId', label: 'App ID (Shopee Affiliate)', placeholder: 'Seu App ID' },
       { key: 'secret', label: 'Secret Key', placeholder: 'Sua Secret Key', type: 'password' },
       { key: 'affiliateTag', label: 'Sub ID (tag de rastreio)', placeholder: 'ex: meuchannel' },
-      { 
-        key: 'filters.keyword', 
-        label: 'Palavra-chave (Múltipla escolha)', 
-        type: 'multiselect',
-        options: [
-          { value: 'Produtos em Alta', label: 'Produtos em Alta' },
-          { value: 'Eletrônicos', label: 'Eletrônicos' },
-          { value: 'Celulares e Smartphones', label: 'Celulares e Smartphones' },
-          { value: 'Informática', label: 'Informática' },
-          { value: 'Moda', label: 'Moda' },
-          { value: 'Beleza e Cuidado Pessoal', label: 'Beleza e Cuidado Pessoal' },
-          { value: 'Casa e Decoração', label: 'Casa e Decoração' },
-          { value: 'Eletrodomésticos', label: 'Eletrodomésticos' },
-          { value: 'Esportes e Fitness', label: 'Esportes e Fitness' }
-        ]
-      },
+      { key: 'filters.keyword', label: 'Palavras-chave (separadas por vírgula)', placeholder: 'ex: iphone, notebook, fralda' },
       { key: 'filters.minDiscount', label: 'Desconto mínimo (%)', placeholder: 'ex: 15', type: 'number' },
     ],
     requiresOAuth: false,
@@ -222,53 +192,15 @@ export default function PlatformConnector({ workspace, onRefresh }) {
                 {info.fields.map((field) => (
                   <div key={field.key} className="form-group">
                     <label className="form-label">{field.label}</label>
-                    {field.type === 'multiselect' ? (
-                      <div>
-                        <select
-                          multiple
-                          className="form-input"
-                          style={{ height: 'auto', minHeight: '160px', padding: '8px' }}
-                          value={formData[field.key] ? formData[field.key].split(', ') : []}
-                          onChange={(e) => {
-                            const vals = Array.from(e.target.selectedOptions, opt => opt.value);
-                            setFormData((prev) => ({ ...prev, [field.key]: vals.join(', ') }));
-                          }}
-                          name={`field_${field.key.replace('.', '_')}`}
-                        >
-                          {field.options.map((opt) => (
-                            <option key={opt.value} value={opt.value} style={{ padding: '6px' }}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <small className="text-muted mt-1" style={{ fontSize: '11px', display: 'block' }}>
-                          * Segure a tecla <b>Ctrl</b> (ou <b>Cmd</b>) para selecionar mais de uma opção.
-                        </small>
-                      </div>
-                    ) : field.type === 'select' ? (
-                      <select
-                        className="form-input"
-                        value={formData[field.key] ?? ''}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                        name={`field_${field.key.replace('.', '_')}`}
-                      >
-                        {field.options.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        className="form-input"
-                        type={field.type ?? 'text'}
-                        placeholder={field.type === 'password' && connected ? '•••••••••••••••• (Salva)' : field.placeholder}
-                        value={formData[field.key] ?? ''}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                        autoComplete="new-password"
-                        name={`field_${field.key.replace('.', '_')}`}
-                      />
-                    )}
+                    <input
+                      className="form-input"
+                      type={field.type ?? 'text'}
+                      placeholder={field.type === 'password' && connected ? '•••••••••••••••• (Salva)' : field.placeholder}
+                      value={formData[field.key] ?? ''}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      autoComplete="new-password"
+                      name={`field_${field.key.replace('.', '_')}`}
+                    />
                   </div>
                 ))}
                 <div className="flex gap-3 mt-2">
