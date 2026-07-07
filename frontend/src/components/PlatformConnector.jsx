@@ -221,30 +221,27 @@ export default function PlatformConnector({ workspace, onRefresh }) {
                   <div key={field.key} className="form-group">
                     <label className="form-label">{field.label}</label>
                     {field.type === 'multiselect' ? (
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {field.options.map((opt) => {
-                          const currentVals = formData[field.key] ? formData[field.key].split(', ') : [];
-                          const isChecked = currentVals.includes(opt.value);
-                          return (
-                            <label key={opt.value} className="flex items-center gap-2 text-sm" style={{ background: isChecked ? 'var(--c-primary-soft)' : 'var(--c-surface)', border: isChecked ? '1px solid var(--c-primary)' : '1px solid var(--c-border)', padding: '6px 12px', borderRadius: '16px', cursor: 'pointer', transition: 'all 0.2s', userSelect: 'none' }}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                style={{ margin: 0, accentColor: 'var(--c-primary)', cursor: 'pointer' }}
-                                onChange={(e) => {
-                                  let newVals = [...currentVals];
-                                  if (e.target.checked) {
-                                    newVals.push(opt.value);
-                                  } else {
-                                    newVals = newVals.filter(v => v !== opt.value);
-                                  }
-                                  setFormData((prev) => ({ ...prev, [field.key]: newVals.length > 0 ? newVals.join(', ') : '' }));
-                                }}
-                              />
+                      <div>
+                        <select
+                          multiple
+                          className="form-input"
+                          style={{ height: 'auto', minHeight: '160px', padding: '8px' }}
+                          value={formData[field.key] ? formData[field.key].split(', ') : []}
+                          onChange={(e) => {
+                            const vals = Array.from(e.target.selectedOptions, opt => opt.value);
+                            setFormData((prev) => ({ ...prev, [field.key]: vals.join(', ') }));
+                          }}
+                          name={`field_${field.key.replace('.', '_')}`}
+                        >
+                          {field.options.map((opt) => (
+                            <option key={opt.value} value={opt.value} style={{ padding: '6px' }}>
                               {opt.label}
-                            </label>
-                          );
-                        })}
+                            </option>
+                          ))}
+                        </select>
+                        <small className="text-muted mt-1" style={{ fontSize: '11px', display: 'block' }}>
+                          * Segure a tecla <b>Ctrl</b> (ou <b>Cmd</b>) para selecionar mais de uma opção.
+                        </small>
                       </div>
                     ) : field.type === 'select' ? (
                       <select
