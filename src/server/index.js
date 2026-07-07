@@ -1,4 +1,6 @@
 import express from 'express';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { createServer } from 'http';
@@ -23,6 +25,20 @@ const httpServer = createServer(app);
 
 // ─── Middlewares ──────────────────────────────────────────────────────────────
 
+app.use(helmet({
+  contentSecurityPolicy: false, // Desativado para não quebrar scripts inline do Vite/React
+}));
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  limit: 300, // Limite de 300 requests por IP
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Muitas requisições deste IP, tente novamente mais tarde.' }
+});
+
+app.use('/api', globalLimiter); // Aplica rate limit apenas nas rotas da API
+
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
     ? process.env.APP_URL
@@ -46,6 +62,12 @@ app.use('/', oauthRoutes); // /ml/authorize, /ml/callback
 app.use('/api/auth', authRoutes);
 app.use('/api/workspaces', requireAuth, workspaceRoutes);
 app.use('/api', requireAuth, platformRoutes);
+
+// ─── Tratamento Global de Erros ───────────────────────────────────────────────
+app.use('/api', (err, req, res, next) => {
+  console.error('[Global Error]', err);
+  res.status(500).json({ error: 'Erro interno do servidor. Tente novamente mais tarde.' });
+});
 
 // ─── Frontend estático (produção) ─────────────────────────────────────────────
 
@@ -96,6 +118,12 @@ waManager.on('qr', ({ workspaceId, qr }) => {
 // ─── Inicialização ────────────────────────────────────────────────────────────
 
 async function bootstrap() {
+  // Fail-Fast: Validação das variáveis críticas
+  if (!process.env.DASHBOARD_PASSWORD) {
+    console.error('❌ ERRO FATAL: DASHBOARD_PASSWORD não está configurado no .env!');
+    process.exit(1);
+  }
+
   // Reconecta workspaces que já tinham sessão salva
   const workspaces = await db.workspace.findMany({ select: { id: true } });
   await waManager.reconnectAll(workspaces.map((w) => w.id));
