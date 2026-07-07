@@ -20,7 +20,7 @@ export default function Layout({ children, workspaces = [] }) {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">🤖</div>
+          <img src="/logo.png" alt="Logo" style={{ width: 36, height: 36, objectFit: 'contain' }} />
           <div className="sidebar-logo-text">
             Afiliado<span>HUB</span>
           </div>
