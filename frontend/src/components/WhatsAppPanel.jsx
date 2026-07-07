@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import QRCode from 'qrcode';
 import { api } from '../api.js';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { useConfirm } from '../contexts/ConfirmContext.jsx';
 
 const STATUS_MAP = {
   connected:    { label: 'Conectado', color: 'var(--c-green)',   icon: '✅' },
@@ -16,6 +17,7 @@ export default function WhatsAppPanel({ workspace, onRefresh }) {
   const [qrImage, setQrImage] = useState(null);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
 
   const status = workspace.waStatus ?? 'disconnected';
   const statusInfo = STATUS_MAP[status] ?? STATUS_MAP.disconnected;
@@ -38,7 +40,7 @@ export default function WhatsAppPanel({ workspace, onRefresh }) {
   }
 
   async function handleDisconnect() {
-    if (!confirm('Desconectar WhatsApp? A sessão será encerrada.')) return;
+    if (!(await confirm({ title: 'Desconectar WhatsApp', message: 'Desconectar WhatsApp? A sessão será encerrada e você precisará escanear o QR Code novamente.', isDanger: true }))) return;
     try {
       await api.whatsapp.disconnect(workspace.id);
       addToast('WhatsApp desconectado', 'info');
