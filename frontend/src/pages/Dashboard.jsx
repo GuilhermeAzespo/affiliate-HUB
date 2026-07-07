@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { useConfirm } from '../contexts/ConfirmContext.jsx';
 import WorkspaceModal from '../components/WorkspaceModal.jsx';
 
 const STATUS_LABELS = {
@@ -103,9 +104,15 @@ export default function Dashboard() {
 
 function WorkspaceCard({ workspace: ws, onRefresh }) {
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
 
-  async function handleDelete() {
-    if (!confirm(`Excluir workspace "${ws.name}"? Isso remove todas as ofertas e configurações.`)) return;
+  const handleDelete = async () => {
+    if (!(await confirm({ 
+      title: 'Excluir Workspace', 
+      message: `Excluir o workspace "${ws.name}"? Isso removerá todas as ofertas e configurações permanentemente.`,
+      isDanger: true,
+      confirmText: 'Excluir'
+    }))) return;
     try {
       await api.workspaces.delete(ws.id);
       addToast('Workspace excluído', 'success');
