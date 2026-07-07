@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [workspaces, setWorkspaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState(null);
   const { addToast } = useToast();
 
   async function load() {
@@ -87,22 +88,28 @@ export default function Dashboard() {
       ) : (
         <div className="grid-2">
           {workspaces.map((ws) => (
-            <WorkspaceCard key={ws.id} workspace={ws} onRefresh={load} />
+            <WorkspaceCard 
+              key={ws.id} 
+              workspace={ws} 
+              onRefresh={load} 
+              onEdit={(w) => setEditingWorkspace(w)} 
+            />
           ))}
         </div>
       )}
 
-      {showModal && (
+      {(showModal || editingWorkspace) && (
         <WorkspaceModal
-          onClose={() => setShowModal(false)}
-          onCreated={() => { setShowModal(false); load(); }}
+          workspace={editingWorkspace}
+          onClose={() => { setShowModal(false); setEditingWorkspace(null); }}
+          onCreated={() => { setShowModal(false); setEditingWorkspace(null); load(); }}
         />
       )}
     </div>
   );
 }
 
-function WorkspaceCard({ workspace: ws, onRefresh }) {
+function WorkspaceCard({ workspace: ws, onRefresh, onEdit }) {
   const { addToast } = useToast();
   const { confirm } = useConfirm();
 
@@ -186,6 +193,14 @@ function WorkspaceCard({ workspace: ws, onRefresh }) {
         >
           Abrir
         </Link>
+        <button
+          className="btn btn-ghost btn-sm btn-icon"
+          style={{ border: '1px solid var(--c-border)' }}
+          onClick={() => onEdit(ws)}
+          title="Editar workspace"
+        >
+          ✏️
+        </button>
         <button
           id={`delete-ws-${ws.id}`}
           className="btn btn-danger btn-sm btn-icon"
