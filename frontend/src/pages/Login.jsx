@@ -25,7 +25,9 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-logo">🤖</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--sp-6)' }}>
+          <img src="/logo.png" alt="Logo" style={{ width: 64, height: 64, objectFit: 'contain' }} />
+        </div>
         <h1 className="login-title">Afiliado<span style={{ color: 'var(--c-purple-light)' }}>HUB</span></h1>
         <p className="login-subtitle">
           Plataforma de curadoria e disparo de ofertas
