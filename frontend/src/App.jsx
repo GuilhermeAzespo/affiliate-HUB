@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
 import { ToastProvider } from './contexts/ToastContext.jsx';
+import { ConfirmProvider } from './contexts/ConfirmContext.jsx';
 import Layout from './components/Layout.jsx';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -52,19 +53,21 @@ function AppWithNav() {
 export default function App() {
   return (
     <BrowserRouter>
-      <ToastProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/*"
-            element={
-              <AuthGuard>
-                <AppWithNav />
-              </AuthGuard>
-            }
-          />
-        </Routes>
-      </ToastProvider>
+      <ConfirmProvider>
+        <ToastProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/*"
+              element={
+                <AuthGuard>
+                  <AppWithNav />
+                </AuthGuard>
+              }
+            />
+          </Routes>
+        </ToastProvider>
+      </ConfirmProvider>
     </BrowserRouter>
   );
 }
