@@ -35,6 +35,20 @@ const PLATFORMS_INFO = {
     ],
     requiresOAuth: false,
   },
+  kabum: {
+    name: 'KaBuM!',
+    icon: '🥷',
+    color: '#fc6b0f',
+    bg: 'rgba(252,107,15,0.08)',
+    border: 'rgba(252,107,15,0.25)',
+    description: 'Busca ofertas do KaBuM! via API pública.',
+    fields: [
+      { key: 'affiliateTag', label: 'ID de Afiliado Awin (ex: 123456)', placeholder: 'Seu ID na Awin' },
+      { key: 'filters.keyword', label: 'Palavras-chave (separadas por vírgula)', placeholder: 'ex: placa de video, ssd, monitor' },
+      { key: 'filters.minDiscount', label: 'Desconto mínimo (%)', placeholder: 'ex: 10', type: 'number' },
+    ],
+    requiresOAuth: false,
+  },
 };
 
 export default function PlatformConnector({ workspace, onRefresh }) {

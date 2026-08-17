@@ -8,6 +8,7 @@ const brl = (n) => Number(n).toLocaleString('pt-BR', { style: 'currency', curren
 const PLATFORM_STYLES = {
   mercadolivre: { label: 'ML', icon: '🛒', cls: 'badge-ml' },
   shopee: { label: 'Shopee', icon: '🛍️', cls: 'badge-shopee' },
+  kabum: { label: 'KaBuM!', icon: '🥷', cls: 'badge-kabum' },
 };
 
 const STATUS_FILTERS = [
@@ -107,6 +108,10 @@ export default function OffersInbox({ workspaceId }) {
             className={`filter-pill ${platform === 'shopee' ? 'active' : ''}`}
             onClick={() => setPlatform('shopee')}
           >🛍️ Shopee</button>
+          <button
+            className={`filter-pill ${platform === 'kabum' ? 'active' : ''}`}
+            onClick={() => setPlatform('kabum')}
+          >🥷 KaBuM!</button>
         </div>
 
         <button

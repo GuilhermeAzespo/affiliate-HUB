@@ -10,7 +10,7 @@ const STATUS_LABELS = {
   qr: 'Aguard. QR', disconnected: 'Desconectado',
 };
 
-const PLATFORM_ICONS = { mercadolivre: '🛒', shopee: '🛍️' };
+const PLATFORM_ICONS = { mercadolivre: '🛒', shopee: '🛍️', kabum: '🥷' };
 
 export default function Dashboard() {
   const [workspaces, setWorkspaces] = useState([]);
@@ -158,8 +158,8 @@ function WorkspaceCard({ workspace: ws, onRefresh, onEdit }) {
       <div className="flex gap-2 mb-4">
         {ws.platforms?.length > 0 ? (
           ws.platforms.map((p) => (
-            <span key={p.id} className={`badge badge-${p.platform === 'mercadolivre' ? 'ml' : 'shopee'}`}>
-              {PLATFORM_ICONS[p.platform]} {p.platform === 'mercadolivre' ? 'ML' : 'Shopee'}
+            <span key={p.id} className={`badge badge-${p.platform === 'mercadolivre' ? 'ml' : p.platform === 'kabum' ? 'kabum' : 'shopee'}`}>
+              {PLATFORM_ICONS[p.platform]} {p.platform === 'mercadolivre' ? 'ML' : p.platform === 'kabum' ? 'KaBuM!' : 'Shopee'}
             </span>
           ))
         ) : (

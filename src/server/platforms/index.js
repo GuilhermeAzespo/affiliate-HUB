@@ -1,9 +1,11 @@
 import { PLATFORM_META as MercadoLivre } from './mercadolivre.js';
 import { PLATFORM_META as Shopee } from './shopee.js';
+import { PLATFORM_META as Kabum } from './kabum.js';
 
 const PLATFORMS = {
   mercadolivre: MercadoLivre,
   shopee: Shopee,
+  kabum: Kabum,
 };
 
 export function getPlatform(id) {

@@ -41,6 +41,8 @@ export async function runSearch(force = false) {
             requiredIntervalHours = parseFloat(settings.shopeeSearchIntervalHours) || 0;
           } else if (platform.platform === 'mercadolivre') {
             requiredIntervalHours = parseFloat(settings.mlSearchIntervalHours) || 0;
+          } else if (platform.platform === 'kabum') {
+            requiredIntervalHours = parseFloat(settings.kabumSearchIntervalHours) || 0;
           }
           
           if (requiredIntervalHours > 0 && hoursSinceLastSync < requiredIntervalHours) {

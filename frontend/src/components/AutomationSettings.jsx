@@ -10,6 +10,7 @@ export default function AutomationSettings({ workspace, onRefresh }) {
     sendIntervalMinutes: settings.sendIntervalMinutes ?? 15,
     shopeeSearchIntervalHours: settings.shopeeSearchIntervalHours ?? 2,
     mlSearchIntervalHours: settings.mlSearchIntervalHours ?? 3,
+    kabumSearchIntervalHours: settings.kabumSearchIntervalHours ?? 3,
   });
   
   const [saving, setSaving] = useState(false);
@@ -89,6 +90,17 @@ export default function AutomationSettings({ workspace, onRefresh }) {
               className="form-input"
               value={formData.mlSearchIntervalHours}
               onChange={(e) => setFormData(prev => ({ ...prev, mlSearchIntervalHours: parseFloat(e.target.value) || 0 }))}
+              step="0.5"
+              min="0.5"
+            />
+          </div>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">KaBuM! (horas)</label>
+            <input
+              type="number"
+              className="form-input"
+              value={formData.kabumSearchIntervalHours}
+              onChange={(e) => setFormData(prev => ({ ...prev, kabumSearchIntervalHours: parseFloat(e.target.value) || 0 }))}
               step="0.5"
               min="0.5"
             />

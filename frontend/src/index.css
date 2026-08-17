@@ -27,6 +27,7 @@
   /* Platform colors */
   --c-ml:          #ffe600;
   --c-shopee:      #ee4d2d;
+  --c-kabum:       #fc6b0f;
 
   /* Text */
   --c-text:        #f1f0ff;
@@ -298,6 +299,7 @@ img { max-width: 100%; display: block; }
 
 .badge-ml     { background: rgba(255,230,0,0.12); color: #ffe600; border: 1px solid rgba(255,230,0,0.3); }
 .badge-shopee { background: rgba(238,77,45,0.12); color: #ff7455; border: 1px solid rgba(238,77,45,0.3); }
+.badge-kabum  { background: rgba(252,107,15,0.12); color: #fc6b0f; border: 1px solid rgba(252,107,15,0.3); }
 
 /* ─── Status Dot ─────────────────────────────────────────── */
 .status-dot {

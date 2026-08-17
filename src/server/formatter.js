@@ -9,6 +9,7 @@ const brl = (n) =>
 const PLATFORM_LABELS = {
   mercadolivre: '🛒 Mercado Livre',
   shopee: '🛍️ Shopee',
+  kabum: '🥷 KaBuM!',
 };
 
 const HOOKS = [
@@ -61,6 +62,8 @@ export function formatOffer(offer) {
     lines.push('📦 Via Mercado Livre');
   } else if (offer.platform === 'shopee') {
     lines.push('📦 Via Shopee');
+  } else if (offer.platform === 'kabum') {
+    lines.push('🥷 Via KaBuM!');
   }
   lines.push(`🛒 Link: ${offer.affiliateUrl}`);
   lines.push('');
@@ -89,6 +92,8 @@ export function formatOfferCompact(offer) {
     lines.push(`📦 Via Mercado Livre`);
   } else if (offer.platform === 'shopee') {
     lines.push(`📦 Via Shopee`);
+  } else if (offer.platform === 'kabum') {
+    lines.push(`🥷 Via KaBuM!`);
   }
   lines.push(`🛒 Link: ${offer.affiliateUrl}`);
   lines.push(`⚠️ _Preços sujeitos a alteração_`);
