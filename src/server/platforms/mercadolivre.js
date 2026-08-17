@@ -105,91 +105,21 @@ export function buildAuthorizeUrl() {
 
 // ─── Busca de ofertas via Extração de Estado JSON ─────────────────────────────
 
-async function fetchOffersPage(page) {
-  const url = page > 1 ? `https://www.mercadolivre.com.br/ofertas?page=${page}` : 'https://www.mercadolivre.com.br/ofertas';
-  const ua = pickUA();
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': ua,
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-      'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-    },
-    redirect: 'follow',
-  });
-  
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.text();
-}
-
-function parseJSONOffers(html, workspaceId, affiliateTag) {
-  const match = html.match(/_n\.ctx\.r\s*=\s*(\{.*?\});/s);
-  if (!match) return [];
-
-  let data;
-  try {
-    data = JSON.parse(match[1]);
-  } catch (e) {
-    console.error('[ML] Erro parse JSON state:', e.message);
-    return [];
-  }
-
-  const items = data?.appProps?.pageProps?.data?.items || [];
-  const offers = [];
-  const tag = affiliateTag || process.env.ML_AFFILIATE_TAG || '';
-
-  for (const item of items) {
-    const card = item?.card;
-    if (!card) continue;
-
-    const externalId = card.metadata?.id || card.metadata?.product_id;
-    let permalink = card.metadata?.url ? `https://${card.metadata.url}` : null;
-    
-    // Pegar título dos components
-    const titleComp = card.components?.find(c => c.type === 'title');
-    const title = titleComp?.title?.text;
-
-    // Pegar preço dos components
-    const priceComp = card.components?.find(c => c.type === 'price');
-    const currentPrice = priceComp?.price?.current_price?.value;
-    const originalPrice = priceComp?.price?.previous_price?.value || null;
-    
-    // Imagem
-    const pictureId = card.pictures?.pictures?.[0]?.id;
-    const imageUrl = pictureId ? `https://http2.mlstatic.com/D_NQ_${pictureId}-O.jpg` : null;
-
-    if (!externalId || !title || !currentPrice || !permalink || !imageUrl) continue;
-
-    const discount = originalPrice && originalPrice > currentPrice
-      ? Math.round((1 - currentPrice / originalPrice) * 100)
-      : null;
-
-    // Limpar âncoras da URL
-    permalink = permalink.split('#')[0];
-
-    const affiliateUrl = tag
-      ? `${permalink}?matt_tool=affiliate_link&matt_word=${tag}`
-      : permalink;
-
-    offers.push({
-      platform: 'mercadolivre',
-      externalId,
-      title,
-      price: currentPrice,
-      originalPrice,
-      discount,
-      imageUrl,
-      affiliateUrl,
-      category: null,
-      workspaceId,
-    });
-  }
-
-  return offers;
-}
+// Funções de scraping removidas (fetchOffersPage, parseJSONOffers) pois usaremos a API oficial.
 
 export async function searchOffers(workspaceId, filters = {}) {
   const config = await getConfig(workspaceId);
-  const affiliateTag = config?.affiliateTag || '';
+  const affiliateTag = config?.affiliateTag || process.env.ML_AFFILIATE_TAG || '';
+  
+  let token;
+  try {
+    token = await getAccessToken(workspaceId);
+  } catch (err) {
+    console.error(`[ML] Erro ao obter token: ${err.message}`);
+    return [];
+  }
+
+  if (!token) return [];
 
   const {
     keyword,
@@ -197,43 +127,69 @@ export async function searchOffers(workspaceId, filters = {}) {
     limit = 50,
   } = filters;
 
-  const keywords = keyword 
-    ? keyword.toLowerCase().split(',').map((k) => k.trim()).filter(Boolean) 
-    : [];
-
-  // Evita usar "oferta" ou "ofertas" como filtro literal de título
-  const validKeywords = keywords.filter(k => k !== 'oferta' && k !== 'ofertas');
+  const searchKeyword = keyword || 'ofertas';
 
   try {
-    // Buscar 2 páginas de ofertas para ter uma boa amostragem (aprox 96 ofertas)
-    const pagesHtml = await Promise.all([
-      fetchOffersPage(1),
-      fetchOffersPage(2)
-    ]);
+    const url = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(searchKeyword)}&limit=${Math.min(limit, 50)}`;
+    
+    const res = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
 
-    const allItems = pagesHtml.flatMap(html => parseJSONOffers(html, workspaceId, affiliateTag));
+    if (!res.ok) throw new Error(`HTTP ${res.status} - ${await res.text()}`);
+    
+    const data = await res.json();
+    const results = data.results || [];
 
-    // Remove duplicatas
-    const uniqueItems = Array.from(new Map(allItems.map(item => [item.externalId, item])).values());
+    const offers = [];
 
-    // Filtros Locais
-    const filteredItems = uniqueItems.filter((item) => {
-      // 1. Filtro de Desconto
+    for (const item of results) {
+      const externalId = String(item.id);
+      let permalink = item.permalink;
+      const title = item.title;
+      const currentPrice = item.price;
+      const originalPrice = item.original_price || null;
+      
+      let imageUrl = item.thumbnail;
+      if (imageUrl) {
+        imageUrl = imageUrl.replace('-I.jpg', '-O.jpg').replace('http:', 'https:');
+      }
+
+      if (!externalId || !title || !currentPrice || !permalink || !imageUrl) continue;
+
+      const discount = originalPrice && originalPrice > currentPrice
+        ? Math.round((1 - currentPrice / originalPrice) * 100)
+        : null;
+
+      permalink = permalink.split('#')[0];
+
+      const affiliateUrl = affiliateTag
+        ? `${permalink}?matt_tool=affiliate_link&matt_word=${affiliateTag}`
+        : permalink;
+
+      offers.push({
+        platform: 'mercadolivre',
+        externalId,
+        title,
+        price: currentPrice,
+        originalPrice,
+        discount,
+        imageUrl,
+        affiliateUrl,
+        category: null,
+        workspaceId,
+      });
+    }
+
+    const filteredItems = offers.filter((item) => {
       if (minDiscount > 0 && (!item.discount || item.discount < minDiscount)) {
         return false;
       }
-      
-      // 2. Filtro de Keyword (local search no título)
-      if (validKeywords.length > 0) {
-        const titleLower = item.title.toLowerCase();
-        const hasKeyword = validKeywords.some(k => titleLower.includes(k));
-        if (!hasKeyword) return false;
-      }
-
       return true;
     });
 
-    // Embaralha para variar as ofertas
     filteredItems.sort(() => Math.random() - 0.5);
 
     return filteredItems.slice(0, limit);

@@ -72,10 +72,7 @@ async function searchAndSave(workspace, platform) {
   let created = 0;
   for (const offer of offers) {
     try {
-      // Se autoApprove estiver ligado, já salva como approved. Senão, pending.
-      offer.status = settings.autoApprove ? 'approved' : 'pending';
-
-      await db.offer.upsert({
+      const existing = await db.offer.findUnique({
         where: {
           platform_externalId_workspaceId: {
             platform: offer.platform,
@@ -83,17 +80,32 @@ async function searchAndSave(workspace, platform) {
             workspaceId: offer.workspaceId,
           },
         },
-        create: offer,
-        update: {
+      });
+
+      if (!existing) {
+        offer.status = settings.autoApprove ? 'approved' : 'pending';
+        await db.offer.create({ data: offer });
+        created++;
+      } else {
+        const updateData = {
           price: offer.price,
           originalPrice: offer.originalPrice,
           discount: offer.discount,
           affiliateUrl: offer.affiliateUrl,
           updatedAt: new Date(),
-          // Não atualizamos o status no update para não sobrescrever a aprovação manual do usuário
-        },
-      });
-      created++;
+        };
+
+        // Atualiza para 'approved' se antes estava 'pending' e autoApprove for habilitado
+        if (settings.autoApprove && existing.status === 'pending') {
+          updateData.status = 'approved';
+        }
+
+        await db.offer.update({
+          where: { id: existing.id },
+          data: updateData,
+        });
+        created++;
+      }
     } catch (err) {
       // ignora duplicatas silenciosamente
       if (!err.message.includes('Unique')) {
