@@ -1,17 +1,13 @@
 /**
  * KaBuM! via AWIN Product Feed API
  *
- * A AWIN usa URLs com parâmetros no PATH (não query string):
- *   https://productdata.awin.com/datafeed/download/apikey/{KEY}/columns/{cols}/format/json/merchantid/{MID}/
+ * A AWIN usa URLs com path-segments e SOMENTE formato CSV:
+ *   https://productdata.awin.com/datafeed/download/apikey/{KEY}/columns/{cols}/format/csv/delimiter/%7C/merchantid/{MID}/
  *
  * Como configurar:
  *   1. Acesse app.awin.com → Toolbox → Create-a-Feed → copie a API Key
  *   2. Publisher ID está no canto superior direito (ex: 3043887)
  *   3. Configure "awinApiKey" e "awinAffid" no workspace via painel Plataformas
- *
- * Variáveis de ambiente (fallback global):
- *   AWIN_API_KEY   — API Key do product feed
- *   AWIN_AFFID     — Seu Publisher ID na AWIN
  */
 
 import db from '../db.js';
@@ -41,25 +37,42 @@ async function getConfig(workspaceId) {
 }
 
 /**
- * Monta a URL do feed AWIN usando path-segments (formato obrigatório da API).
- * Ref: https://productdata.awin.com/datafeed/download/apikey/{KEY}/columns/{cols}/format/json/merchantid/{MID}/
+ * Monta a URL do feed AWIN usando path-segments e formato CSV com delimitador pipe (|).
+ * O delimitador pipe (%7C) evita conflitos com vírgulas em nomes de produtos.
  */
 function buildFeedUrl(awinApiKey) {
-  // A AWIN não suporta filtro por keyword no download do feed —
-  // baixamos todos os produtos do KaBuM e filtramos localmente.
   return [
     `https://productdata.awin.com/datafeed/download/apikey/${awinApiKey}`,
     `columns/${encodeURIComponent(FEED_COLUMNS)}`,
-    'format/json',
+    'format/csv',
+    'delimiter/%7C',          // pipe (|) como delimitador
+    'compression/none',
     `merchantid/${KABUM_AWIN_MID}`,
-    '', // trailing slash
+    '',                       // trailing slash
   ].join('/');
+}
+
+/**
+ * Parser CSV simples usando delimitador pipe.
+ * Retorna array de objetos com as colunas do cabeçalho como chaves.
+ */
+function parsePipeCsv(text) {
+  const lines = text.split('\n').filter((l) => l.trim());
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split('|').map((h) => h.trim().replace(/^"|"$/g, ''));
+
+  return lines.slice(1).map((line) => {
+    const values = line.split('|').map((v) => v.trim().replace(/^"|"$/g, ''));
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = values[i] ?? ''; });
+    return obj;
+  });
 }
 
 export async function searchOffers(workspaceId, filters = {}) {
   const config = await getConfig(workspaceId);
 
-  // Credenciais: config do workspace tem prioridade sobre variáveis de ambiente
   const awinApiKey = config?.awinApiKey || process.env.AWIN_API_KEY || '';
   const awinAffid  = config?.awinAffid  || process.env.AWIN_AFFID   || '';
 
@@ -67,15 +80,8 @@ export async function searchOffers(workspaceId, filters = {}) {
     console.error('[KaBuM!/AWIN] awinApiKey não configurado. Configure em Plataformas → KaBuM!');
     return [];
   }
-  if (!awinAffid) {
-    console.warn('[KaBuM!/AWIN] awinAffid (Publisher ID) não configurado. Links de afiliado serão diretos.');
-  }
 
-  const {
-    keyword,
-    minDiscount = 0,
-    limit = 100,
-  } = filters;
+  const { keyword, minDiscount = 0, limit = 100 } = filters;
 
   // Keywords para filtro local (case-insensitive)
   const keywordList = keyword
@@ -83,42 +89,26 @@ export async function searchOffers(workspaceId, filters = {}) {
     : [];
 
   const url = buildFeedUrl(awinApiKey);
-  console.log(`[KaBuM!/AWIN] Baixando feed completo do KaBuM! — ${url}`);
+  console.log(`[KaBuM!/AWIN] Baixando feed CSV do KaBuM! — merchantid/${KABUM_AWIN_MID}`);
 
   let rawItems = [];
 
   try {
     const res = await fetch(url, {
       headers: {
-        'Accept': 'application/json',
+        'Accept': 'text/csv, text/plain, */*',
         'User-Agent': 'AfiliadoHUB/1.0',
       },
     });
 
     if (!res.ok) {
       const text = await res.text();
-      console.error(`[KaBuM!/AWIN] HTTP ${res.status}:`, text.slice(0, 400));
+      console.error(`[KaBuM!/AWIN] HTTP ${res.status}:`, text.slice(0, 500));
       return [];
     }
 
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      rawItems = await res.json();
-    } else {
-      const text = await res.text();
-      try {
-        rawItems = JSON.parse(text);
-      } catch {
-        console.error('[KaBuM!/AWIN] Resposta inesperada (não é JSON):', text.slice(0, 400));
-        return [];
-      }
-    }
-
-    // Normaliza: AWIN pode retornar array direto ou { data: [] }
-    if (!Array.isArray(rawItems)) {
-      rawItems = rawItems?.data ?? rawItems?.products ?? [];
-    }
-
+    const csvText = await res.text();
+    rawItems = parsePipeCsv(csvText);
     console.log(`[KaBuM!/AWIN] Feed recebido: ${rawItems.length} produtos`);
   } catch (err) {
     console.error('[KaBuM!/AWIN] Erro ao buscar feed:', err.message);
@@ -127,7 +117,7 @@ export async function searchOffers(workspaceId, filters = {}) {
 
   // ── Filtragem local ──────────────────────────────────────────────────────────
 
-  // 1. Remove duplicatas pelo ID do produto AWIN
+  // 1. Remove duplicatas
   const seen = new Set();
   let items = rawItems.filter((item) => {
     const key = item.aw_product_id || item.merchant_product_id;
@@ -136,7 +126,7 @@ export async function searchOffers(workspaceId, filters = {}) {
     return true;
   });
 
-  // 2. Filtro por keyword (title contains any keyword)
+  // 2. Filtro por keyword (título contém alguma das palavras-chave)
   if (keywordList.length > 0) {
     items = items.filter((item) => {
       const title = (item.product_name || '').toLowerCase();
@@ -144,7 +134,7 @@ export async function searchOffers(workspaceId, filters = {}) {
     });
   }
 
-  // 3. Embaralha para variar os resultados
+  // 3. Embaralha para variar
   items.sort(() => Math.random() - 0.5);
 
   // ── Monta as ofertas ─────────────────────────────────────────────────────────
@@ -153,27 +143,26 @@ export async function searchOffers(workspaceId, filters = {}) {
 
   for (const item of items) {
     const externalId    = String(item.aw_product_id || item.merchant_product_id || '');
-    const title         = item.product_name || item.name || '';
-    const currentPrice  = parseFloat(item.search_price || item.price || '0');
-    const originalPrice = item.was_price ? parseFloat(item.was_price) : null;
-    const imageUrl      = item.merchant_image_url || item.image_url || null;
-    const category      = item.category_name || item.category || null;
+    const title         = item.product_name || '';
+    const currentPrice  = parseFloat(item.search_price || '0');
+    const originalPrice = item.was_price && item.was_price !== '' ? parseFloat(item.was_price) : null;
+    const imageUrl      = item.merchant_image_url || null;
+    const category      = item.category_name || null;
     const description   = item.description || null;
 
-    // O aw_deep_link já é o link de afiliado gerado pela AWIN (com tracking)
+    // aw_deep_link já é o link rastreado pela AWIN
     let affiliateUrl = item.aw_deep_link || '';
 
-    // Fallback: monta o link manualmente com awinaffid se não houver aw_deep_link
+    // Fallback manual com awinaffid se não houver aw_deep_link
     if (!affiliateUrl && awinAffid) {
-      const directLink = item.merchant_deep_link || item.product_url || '';
-      affiliateUrl = directLink
-        ? `https://www.awin1.com/cread.php?awinmid=${KABUM_AWIN_MID}&awinaffid=${awinAffid}&ued=${encodeURIComponent(directLink)}`
-        : '';
+      affiliateUrl = `https://www.awin1.com/cread.php?awinmid=${KABUM_AWIN_MID}&awinaffid=${awinAffid}&ued=${encodeURIComponent(`https://www.kabum.com.br/produto/${externalId}`)}`;
     }
 
     if (!externalId || !title || !currentPrice || !affiliateUrl) continue;
 
-    const discountRaw = item.discount_percent ? parseInt(item.discount_percent, 10) : null;
+    const discountRaw = item.discount_percent && item.discount_percent !== ''
+      ? parseInt(item.discount_percent, 10)
+      : null;
     const discount = discountRaw ?? (
       originalPrice && originalPrice > currentPrice
         ? Math.round((1 - currentPrice / originalPrice) * 100)
