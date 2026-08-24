@@ -1,27 +1,22 @@
 /**
- * KaBuM! via AWIN Product Feed API
+ * KaBuM! via API Pública + Link de Afiliado AWIN
  *
- * Fluxo correto:
- *   1. GET /datafeed/list/apikey/{KEY}  → CSV com todos os feeds configurados
- *   2. Filtra pelo merchantId 17729 (KaBuM!)
- *   3. Baixa o feed encontrado via sua própria URL de download
- *   4. Faz filtragem local por keyword e desconto mínimo
+ * Busca produtos na API pública do KaBuM e envolve os links com o tracker AWIN.
+ * Não requer credenciais da API AWIN — apenas o Publisher ID (awinAffid).
  *
- * Como configurar:
- *   1. Acesse app.awin.com → Toolbox → Create-a-Feed → selecione KaBuM!
- *   2. Gere o feed e copie a API Key (mostrada na URL do feedList)
- *   3. Publisher ID está no canto superior direito (ex: 3043887)
- *   4. Configure "awinApiKey" e "awinAffid" no workspace via painel Plataformas
+ * Configuração no workspace (Plataformas → KaBuM):
+ *   awinAffid   — Seu Publisher ID na AWIN (ex: 3043887)
+ *   filters.keyword      — Palavras-chave separadas por vírgula
+ *   filters.minDiscount  — Desconto mínimo em %
+ *
+ * Variável de ambiente (fallback global):
+ *   AWIN_AFFID  — Publisher ID AWIN
  */
 
 import db from '../db.js';
 
+const KABUM_API   = 'https://servicespub.prod.api.aws.grupokabum.com.br/catalog/v2';
 const KABUM_AWIN_MID = '17729';
-
-// URL correta do feedList: usa ut.awin.com com publisherId + apiKey no path
-// (exatamente como exibido em app.awin.com → Toolbox → Create-a-Feed)
-const AWIN_FEED_LIST = (publisherId, apiKey) =>
-  `https://ut.awin.com/productdata-darwin.download/publisher/${publisherId}/${apiKey}/1/feedList`;
 
 async function getConfig(workspaceId) {
   const record = await db.workspacePlatform.findUnique({
@@ -30,211 +25,129 @@ async function getConfig(workspaceId) {
   return record?.config ?? null;
 }
 
-/**
- * Parser CSV simples (delimitador vírgula com suporte a campos entre aspas).
- * Retorna array de objetos com o cabeçalho como chave.
- */
-function parseCsv(text, delimiter = ',') {
-  const lines = text.split('\n').filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(delimiter).map((h) => h.trim().replace(/^"|"$/g, ''));
-  return lines.slice(1).map((line) => {
-    const values = line.split(delimiter).map((v) => v.trim().replace(/^"|"$/g, ''));
-    const obj = {};
-    headers.forEach((h, i) => { obj[h] = values[i] ?? ''; });
-    return obj;
-  });
-}
-
-/**
- * Passo 1: Obtém a lista de feeds disponíveis e retorna a URL de download
- * do feed do KaBuM! (merchantId 17729).
- */
-async function getKabumFeedUrl(awinApiKey, publisherId) {
-  const listUrl = AWIN_FEED_LIST(publisherId, awinApiKey);
-  console.log(`[KaBuM!/AWIN] Buscando lista de feeds (publisher: ${publisherId})...`);
-
-  const res = await fetch(listUrl, {
-    headers: { 'User-Agent': 'AfiliadoHUB/1.0' },
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`FeedList HTTP ${res.status}: ${text.slice(0, 300)}`);
-  }
-
-  const csvText = await res.text();
-  console.log(`[KaBuM!/AWIN] FeedList raw (primeiros 500 chars):\n${csvText.slice(0, 500)}`);
-
-  // A feedList usa vírgula como delimitador
-  const feeds = parseCsv(csvText, ',');
-  console.log(`[KaBuM!/AWIN] Total de feeds disponíveis: ${feeds.length}`);
-
-  if (feeds.length > 0) {
-    console.log(`[KaBuM!/AWIN] Colunas disponíveis no feedList:`, Object.keys(feeds[0]));
-  }
-
-  // Procura feed do KaBuM pelo merchantId
-  const kabumFeed = feeds.find(
-    (f) => String(f.merchant_id || f.merchantId || f['Merchant ID'] || f.merchantid || '') === KABUM_AWIN_MID
-  );
-
-  if (!kabumFeed) {
-    // Mostra todos os feeds disponíveis para debug
-    console.error('[KaBuM!/AWIN] Feed do KaBuM não encontrado. Feeds disponíveis:',
-      JSON.stringify(feeds.map((f) => ({
-        merchant_id: f.merchant_id || f.merchantId || f['Merchant ID'],
-        merchant_name: f.merchant_name || f.merchantName || f['Merchant Name'],
-      })))
-    );
-    return null;
-  }
-
-  // A URL de download está em algum campo: url, download_url, feed_url, etc.
-  const downloadUrl = kabumFeed.url || kabumFeed.download_url || kabumFeed.feed_url
-    || kabumFeed['URL'] || kabumFeed['Download URL'] || kabumFeed['Feed URL'];
-
-  console.log(`[KaBuM!/AWIN] Feed KaBuM encontrado:`, JSON.stringify(kabumFeed));
-
-  return downloadUrl || null;
-}
-
 export async function searchOffers(workspaceId, filters = {}) {
   const config = await getConfig(workspaceId);
 
-  const awinApiKey = config?.awinApiKey || process.env.AWIN_API_KEY || '';
-  const awinAffid  = config?.awinAffid  || process.env.AWIN_AFFID   || '';
+  // Publisher ID AWIN para montar o link de afiliado
+  const awinAffid = config?.awinAffid || process.env.AWIN_AFFID || '';
 
-  if (!awinApiKey) {
-    console.error('[KaBuM!/AWIN] awinApiKey não configurado. Configure em Plataformas → KaBuM!');
-    return [];
-  }
-
-  const { keyword, minDiscount = 0, limit = 100 } = filters;
-
-  const keywordList = keyword
-    ? keyword.split(',').map((k) => k.trim().toLowerCase()).filter(Boolean)
-    : [];
-
-  // ── Passo 1: Descobre a URL de download do feed ─────────────────────────────
   if (!awinAffid) {
-    console.error('[KaBuM!/AWIN] awinAffid (Publisher ID) não configurado. Configure em Plataformas → KaBuM!');
-    return [];
+    console.warn('[KaBuM!] awinAffid (Publisher ID AWIN) não configurado — links serão diretos (sem rastreio).');
   }
 
-  let feedDownloadUrl;
-  try {
-    feedDownloadUrl = await getKabumFeedUrl(awinApiKey, awinAffid);
-  } catch (err) {
-    console.error('[KaBuM!/AWIN] Erro ao obter feedList:', err.message);
-    return [];
-  }
+  const {
+    keyword,
+    minDiscount = 0,
+    limit = 50,
+  } = filters;
 
-  if (!feedDownloadUrl) {
-    console.error('[KaBuM!/AWIN] Nenhum feed do KaBuM configurado. Crie um feed em app.awin.com → Toolbox → Create-a-Feed selecionando KaBuM! (merchantId 17729).');
-    return [];
-  }
+  const keywords = keyword
+    ? keyword.split(',').map((k) => k.trim()).filter(Boolean)
+    : ['ofertas'];
 
-  // ── Passo 2: Baixa o CSV do feed ─────────────────────────────────────────────
-  console.log(`[KaBuM!/AWIN] Baixando feed: ${feedDownloadUrl}`);
-  let rawItems = [];
+  const maxKeywords = keywords.slice(0, 5);
 
-  try {
-    const res = await fetch(feedDownloadUrl, {
-      headers: {
-        'Accept': 'text/csv, text/plain, */*',
-        'User-Agent': 'AfiliadoHUB/1.0',
-      },
-    });
+  const fetchPromises = maxKeywords.map(async (kw) => {
+    try {
+      const pageSize = Math.min(Math.ceil(limit / maxKeywords.length), 30);
+      const url = `${KABUM_API}/products?query=${encodeURIComponent(kw)}&page_number=1&page_size=${pageSize}`;
 
-    if (!res.ok) {
-      const text = await res.text();
-      console.error(`[KaBuM!/AWIN] HTTP ${res.status} ao baixar feed:`, text.slice(0, 500));
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json',
+          'Referer': 'https://www.kabum.com.br/',
+          'Origin': 'https://www.kabum.com.br',
+        },
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        // 404 com CATALOG_NOT_MATCH = nenhum produto para esta keyword
+        if (res.status === 404 && text.includes('CATALOG_NOT_MATCH')) return [];
+        console.error(`[KaBuM!] HTTP ${res.status} para "${kw}":`, text.slice(0, 200));
+        return [];
+      }
+
+      const json = await res.json();
+      const items = json.data ?? [];
+      console.log(`[KaBuM!] "${kw}": ${items.length} produtos encontrados`);
+      return items;
+    } catch (err) {
+      console.error(`[KaBuM!] Erro buscando "${kw}":`, err.message);
       return [];
     }
+  });
 
-    const csvText = await res.text();
+  const resultsArrays = await Promise.all(fetchPromises);
+  const allItems = resultsArrays.flat();
 
-    // Detecta o delimitador automaticamente (| ou ,)
-    const delimiter = csvText.split('\n')[0]?.includes('|') ? '|' : ',';
-    rawItems = parseCsv(csvText, delimiter);
-
-    console.log(`[KaBuM!/AWIN] Feed recebido: ${rawItems.length} produtos (delimitador: "${delimiter}")`);
-    if (rawItems.length > 0) {
-      console.log(`[KaBuM!/AWIN] Colunas do feed:`, Object.keys(rawItems[0]));
-    }
-  } catch (err) {
-    console.error('[KaBuM!/AWIN] Erro ao baixar feed:', err.message);
-    return [];
-  }
-
-  // ── Filtragem local ──────────────────────────────────────────────────────────
-
+  // Remove duplicatas pelo id
   const seen = new Set();
-  let items = rawItems.filter((item) => {
-    const key = item.aw_product_id || item.merchant_product_id;
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
+  const uniqueItems = allItems.filter((item) => {
+    if (!item.id || seen.has(item.id)) return false;
+    seen.add(item.id);
     return true;
   });
 
-  if (keywordList.length > 0) {
-    items = items.filter((item) => {
-      const title = (item.product_name || '').toLowerCase();
-      return keywordList.some((kw) => title.includes(kw));
-    });
-  }
-
-  items.sort(() => Math.random() - 0.5);
-
-  // ── Monta as ofertas ─────────────────────────────────────────────────────────
+  // Embaralha para variar
+  uniqueItems.sort(() => Math.random() - 0.5);
 
   const offers = [];
 
-  for (const item of items) {
-    const externalId    = String(item.aw_product_id || item.merchant_product_id || '');
-    const title         = item.product_name || '';
-    const currentPrice  = parseFloat(item.search_price || '0');
-    const originalPrice = item.was_price && item.was_price !== '' ? parseFloat(item.was_price) : null;
-    const imageUrl      = item.merchant_image_url || null;
-    const category      = item.category_name || null;
-    const description   = item.description || null;
+  for (const item of uniqueItems) {
+    // A API v2 retorna os dados dentro de item.attributes
+    const attr = item.attributes ?? item;
 
-    let affiliateUrl = item.aw_deep_link || '';
-    if (!affiliateUrl && awinAffid) {
-      affiliateUrl = `https://www.awin1.com/cread.php?awinmid=${KABUM_AWIN_MID}&awinaffid=${awinAffid}&ued=${encodeURIComponent(`https://www.kabum.com.br/produto/${externalId}`)}`;
-    }
+    const externalId    = String(item.id || '');
+    const title         = attr.title || attr.name || '';
+    const currentPrice  = parseFloat(attr.price || attr.price_with_discount || '0');
+    const originalPrice = parseFloat(attr.old_price || '0') || null;
+    const discountPct   = parseInt(attr.discount_percentage || '0', 10) || null;
+    const productSlug   = attr.product_link || '';
 
-    if (!externalId || !title || !currentPrice || !affiliateUrl) continue;
+    // Imagem: preferência para tamanho grande (g ou gg)
+    const imageUrl = attr.photos?.g?.[0] || attr.photos?.gg?.[0]
+      || attr.images?.[0] || null;
 
-    const discountRaw = item.discount_percent && item.discount_percent !== ''
-      ? parseInt(item.discount_percent, 10)
-      : null;
-    const discount = discountRaw ?? (
+    // URL do produto
+    const productUrl = `https://www.kabum.com.br/produto/${externalId}/${productSlug}`;
+
+    // Link de afiliado AWIN (tracking via redirect)
+    const affiliateUrl = awinAffid
+      ? `https://www.awin1.com/cread.php?awinmid=${KABUM_AWIN_MID}&awinaffid=${awinAffid}&ued=${encodeURIComponent(productUrl)}`
+      : productUrl;
+
+    if (!externalId || !title || !currentPrice) continue;
+
+    const discount = discountPct ?? (
       originalPrice && originalPrice > currentPrice
         ? Math.round((1 - currentPrice / originalPrice) * 100)
         : null
     );
 
+    // Filtra por desconto mínimo
     if (minDiscount > 0 && (discount === null || discount < minDiscount)) continue;
+
+    // Só inclui produtos disponíveis
+    if (attr.available === false) continue;
 
     offers.push({
       platform: 'kabum',
       externalId,
       title,
       price: currentPrice,
-      originalPrice,
+      originalPrice: originalPrice && originalPrice > currentPrice ? originalPrice : null,
       discount,
       imageUrl,
       affiliateUrl,
-      description,
-      category,
+      description: null,
+      category: attr.menu || null,
       workspaceId,
     });
   }
 
-  console.log(`[KaBuM!/AWIN] ${offers.length} ofertas após filtragem (keyword: "${keyword || 'todas'}", minDiscount: ${minDiscount}%)`);
-
+  console.log(`[KaBuM!] ${offers.length} ofertas após filtragem (minDiscount: ${minDiscount}%)`);
   return offers.slice(0, limit);
 }
 
