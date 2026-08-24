@@ -31,7 +31,13 @@ export async function searchOffers(workspaceId, filters = {}) {
       }
     });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status} - ${await res.text()}`);
+    if (!res.ok) {
+      const errorText = await res.text();
+      if (res.status === 404 && errorText.includes('CATALOG_NOT_MATCH')) {
+        return []; // Nenhum produto encontrado para essa keyword
+      }
+      throw new Error(`HTTP ${res.status} - ${errorText}`);
+    }
     
     const data = await res.json();
     const results = data.data || [];
