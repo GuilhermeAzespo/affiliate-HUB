@@ -1,27 +1,25 @@
 /**
  * KaBuM! via AWIN Product Feed API
  *
+ * A AWIN usa URLs com parâmetros no PATH (não query string):
+ *   https://productdata.awin.com/datafeed/download/apikey/{KEY}/columns/{cols}/format/json/merchantid/{MID}/
+ *
  * Como configurar:
- *   1. Acesse app.awin.com → Toolbox → Create-a-Feed
- *   2. Selecione o anunciante KaBuM! (awinmid: 17729)
- *   3. Gere a URL do feed e copie a sua API Key de produtos
- *   4. Configure "awinApiKey" e "awinaffid" no workspace via painel Plataformas
+ *   1. Acesse app.awin.com → Toolbox → Create-a-Feed → copie a API Key
+ *   2. Publisher ID está no canto superior direito (ex: 3043887)
+ *   3. Configure "awinApiKey" e "awinAffid" no workspace via painel Plataformas
  *
  * Variáveis de ambiente (fallback global):
- *   AWIN_API_KEY   — API Key do product feed (Create-a-Feed)
- *   AWIN_AFFID     — Seu Publisher ID na AWIN (awinaffid)
+ *   AWIN_API_KEY   — API Key do product feed
+ *   AWIN_AFFID     — Seu Publisher ID na AWIN
  */
 
 import db from '../db.js';
-import zlib from 'zlib';
-import { promisify } from 'util';
 
-const gunzip = promisify(zlib.gunzip);
-
-// Anunciante KaBuM! na plataforma AWIN
+// ID do anunciante KaBuM! na plataforma AWIN
 const KABUM_AWIN_MID = '17729';
 
-// Colunas mínimas necessárias do feed AWIN
+// Colunas solicitadas ao feed AWIN
 const FEED_COLUMNS = [
   'aw_deep_link',
   'product_name',
@@ -43,22 +41,19 @@ async function getConfig(workspaceId) {
 }
 
 /**
- * Monta a URL do feed AWIN para o KaBuM!
- * Documentação: https://productdata.awin.com
+ * Monta a URL do feed AWIN usando path-segments (formato obrigatório da API).
+ * Ref: https://productdata.awin.com/datafeed/download/apikey/{KEY}/columns/{cols}/format/json/merchantid/{MID}/
  */
-function buildFeedUrl(awinApiKey, keyword = '', page = 1, pageSize = 50) {
-  const base = `https://productdata.awin.com/datafeed/download/apikey/${awinApiKey}`;
-  const params = new URLSearchParams({
-    merchants: KABUM_AWIN_MID,   // AWIN exige 'merchants', não 'mid'
-    columns: FEED_COLUMNS,
-    format: 'json',
-    // Se não houver keyword, busca todos os produtos em oferta
-    ...(keyword ? { keyword } : {}),
-    pagenumber: String(page),
-    pagesize: String(Math.min(pageSize, 100)),
-  });
-
-  return `${base}?${params.toString()}`;
+function buildFeedUrl(awinApiKey) {
+  // A AWIN não suporta filtro por keyword no download do feed —
+  // baixamos todos os produtos do KaBuM e filtramos localmente.
+  return [
+    `https://productdata.awin.com/datafeed/download/apikey/${awinApiKey}`,
+    `columns/${encodeURIComponent(FEED_COLUMNS)}`,
+    'format/json',
+    `merchantid/${KABUM_AWIN_MID}`,
+    '', // trailing slash
+  ].join('/');
 }
 
 export async function searchOffers(workspaceId, filters = {}) {
@@ -79,89 +74,96 @@ export async function searchOffers(workspaceId, filters = {}) {
   const {
     keyword,
     minDiscount = 0,
-    limit = 50,
+    limit = 100,
   } = filters;
 
-  const keywords = keyword
-    ? keyword.split(',').map((k) => k.trim()).filter(Boolean)
-    : ['']; // string vazia = sem filtro de keyword (busca ampla)
+  // Keywords para filtro local (case-insensitive)
+  const keywordList = keyword
+    ? keyword.split(',').map((k) => k.trim().toLowerCase()).filter(Boolean)
+    : [];
 
-  const maxKeywords = keywords.slice(0, 5);
+  const url = buildFeedUrl(awinApiKey);
+  console.log(`[KaBuM!/AWIN] Baixando feed completo do KaBuM! — ${url}`);
 
-  const fetchPromises = maxKeywords.map(async (kw) => {
-    try {
-      const url = buildFeedUrl(awinApiKey, kw, 1, Math.ceil(limit / maxKeywords.length));
+  let rawItems = [];
 
-      console.log(`[KaBuM!/AWIN] Buscando keyword="${kw || '(todas)'}" — ${url.split('?')[0]}`);
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'AfiliadoHUB/1.0',
+      },
+    });
 
-      const res = await fetch(url, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'AfiliadoHUB/1.0',
-        },
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error(`[KaBuM!/AWIN] HTTP ${res.status} para keyword="${kw}":`, text.slice(0, 300));
-        return [];
-      }
-
-      // AWIN pode retornar gzip dependendo do Accept-Encoding
-      const contentType = res.headers.get('content-type') || '';
-      let data;
-
-      if (contentType.includes('application/json')) {
-        data = await res.json();
-      } else {
-        // Tenta parsear como JSON de qualquer forma
-        const text = await res.text();
-        try {
-          data = JSON.parse(text);
-        } catch {
-          console.error(`[KaBuM!/AWIN] Resposta inesperada para "${kw}":`, text.slice(0, 300));
-          return [];
-        }
-      }
-
-      // O feed AWIN retorna array direto ou { data: [] }
-      return Array.isArray(data) ? data : (data?.data ?? data?.products ?? []);
-    } catch (err) {
-      console.error(`[KaBuM!/AWIN] Erro buscando "${kw}":`, err.message);
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`[KaBuM!/AWIN] HTTP ${res.status}:`, text.slice(0, 400));
       return [];
     }
-  });
 
-  const resultsArrays = await Promise.all(fetchPromises);
-  const allResults = resultsArrays.flat();
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      rawItems = await res.json();
+    } else {
+      const text = await res.text();
+      try {
+        rawItems = JSON.parse(text);
+      } catch {
+        console.error('[KaBuM!/AWIN] Resposta inesperada (não é JSON):', text.slice(0, 400));
+        return [];
+      }
+    }
 
-  // Remove duplicatas pelo ID do produto AWIN
+    // Normaliza: AWIN pode retornar array direto ou { data: [] }
+    if (!Array.isArray(rawItems)) {
+      rawItems = rawItems?.data ?? rawItems?.products ?? [];
+    }
+
+    console.log(`[KaBuM!/AWIN] Feed recebido: ${rawItems.length} produtos`);
+  } catch (err) {
+    console.error('[KaBuM!/AWIN] Erro ao buscar feed:', err.message);
+    return [];
+  }
+
+  // ── Filtragem local ──────────────────────────────────────────────────────────
+
+  // 1. Remove duplicatas pelo ID do produto AWIN
   const seen = new Set();
-  const uniqueResults = allResults.filter((item) => {
+  let items = rawItems.filter((item) => {
     const key = item.aw_product_id || item.merchant_product_id;
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
-  // Embaralha para variar os resultados
-  uniqueResults.sort(() => Math.random() - 0.5);
+  // 2. Filtro por keyword (title contains any keyword)
+  if (keywordList.length > 0) {
+    items = items.filter((item) => {
+      const title = (item.product_name || '').toLowerCase();
+      return keywordList.some((kw) => title.includes(kw));
+    });
+  }
+
+  // 3. Embaralha para variar os resultados
+  items.sort(() => Math.random() - 0.5);
+
+  // ── Monta as ofertas ─────────────────────────────────────────────────────────
 
   const offers = [];
 
-  for (const item of uniqueResults) {
-    const externalId   = String(item.aw_product_id || item.merchant_product_id || '');
-    const title        = item.product_name || item.name || '';
-    const currentPrice = parseFloat(item.search_price || item.price || '0');
+  for (const item of items) {
+    const externalId    = String(item.aw_product_id || item.merchant_product_id || '');
+    const title         = item.product_name || item.name || '';
+    const currentPrice  = parseFloat(item.search_price || item.price || '0');
     const originalPrice = item.was_price ? parseFloat(item.was_price) : null;
-    const imageUrl     = item.merchant_image_url || item.image_url || null;
-    const category     = item.category_name || item.category || null;
-    const description  = item.description || null;
+    const imageUrl      = item.merchant_image_url || item.image_url || null;
+    const category      = item.category_name || item.category || null;
+    const description   = item.description || null;
 
     // O aw_deep_link já é o link de afiliado gerado pela AWIN (com tracking)
     let affiliateUrl = item.aw_deep_link || '';
 
-    // Se o publisher tiver awinaffid e o link não tiver, constrói manualmente
+    // Fallback: monta o link manualmente com awinaffid se não houver aw_deep_link
     if (!affiliateUrl && awinAffid) {
       const directLink = item.merchant_deep_link || item.product_url || '';
       affiliateUrl = directLink
@@ -178,6 +180,9 @@ export async function searchOffers(workspaceId, filters = {}) {
         : null
     );
 
+    // 4. Filtro por desconto mínimo
+    if (minDiscount > 0 && (discount === null || discount < minDiscount)) continue;
+
     offers.push({
       platform: 'kabum',
       externalId,
@@ -193,12 +198,9 @@ export async function searchOffers(workspaceId, filters = {}) {
     });
   }
 
-  // Filtra por desconto mínimo
-  const filtered = minDiscount > 0
-    ? offers.filter((o) => o.discount !== null && o.discount >= minDiscount)
-    : offers;
+  console.log(`[KaBuM!/AWIN] ${offers.length} ofertas após filtragem (keyword: "${keyword || 'todas'}", minDiscount: ${minDiscount}%)`);
 
-  return filtered.slice(0, limit);
+  return offers.slice(0, limit);
 }
 
 export const PLATFORM_META = {
