@@ -49,7 +49,7 @@ async function getConfig(workspaceId) {
 function buildFeedUrl(awinApiKey, keyword = '', page = 1, pageSize = 50) {
   const base = `https://productdata.awin.com/datafeed/download/apikey/${awinApiKey}`;
   const params = new URLSearchParams({
-    mid: KABUM_AWIN_MID,
+    merchants: KABUM_AWIN_MID,   // AWIN exige 'merchants', não 'mid'
     columns: FEED_COLUMNS,
     format: 'json',
     // Se não houver keyword, busca todos os produtos em oferta
