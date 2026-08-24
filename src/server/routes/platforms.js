@@ -18,7 +18,7 @@ router.get('/workspaces/:id/platforms', async (req, res) => {
   const platforms = await db.workspacePlatform.findMany({
     where: { workspaceId: req.params.id },
   });
-  // Não expõe tokens — apenas config pública
+  // Não expõe tokens/secrets — apenas config pública
   const safe = platforms.map((p) => ({
     id: p.id,
     platform: p.platform,
@@ -27,7 +27,10 @@ router.get('/workspaces/:id/platforms', async (req, res) => {
     filters: p.config?.filters ?? {},
     appId: p.config?.appId,
     affiliateTag: p.config?.affiliateTag,
-    connected: !!p.config?.accessToken || !!p.config?.appId,
+    // KaBuM!/AWIN — retorna se a chave existe (true/false), sem expor o valor
+    hasAwinApiKey: !!p.config?.awinApiKey,
+    awinAffid: p.config?.awinAffid ?? '',
+    connected: !!p.config?.accessToken || !!p.config?.appId || !!p.config?.awinApiKey,
   }));
   res.json(safe);
 });

@@ -20,10 +20,22 @@ export function startWorker() {
   runSearch().catch(console.error);
 }
 
-export async function runSearch(force = false) {
+export async function runSearch(force = false, targetWorkspaceId = null, targetPlatformId = null) {
   try {
+    // Se um workspaceId específico foi passado (busca manual), filtra apenas ele
+    const whereClause = targetWorkspaceId ? { id: targetWorkspaceId } : {};
+
     const workspaces = await db.workspace.findMany({
-      include: { platforms: { where: { enabled: true } } },
+      where: whereClause,
+      include: {
+        platforms: {
+          where: {
+            enabled: true,
+            // Se uma plataforma específica foi passada, filtra por ela também
+            ...(targetPlatformId ? { platform: targetPlatformId } : {}),
+          },
+        },
+      },
     });
 
     for (const workspace of workspaces) {

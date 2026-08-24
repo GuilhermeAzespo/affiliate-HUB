@@ -41,9 +41,10 @@ const PLATFORMS_INFO = {
     color: '#fc6b0f',
     bg: 'rgba(252,107,15,0.08)',
     border: 'rgba(252,107,15,0.25)',
-    description: 'Busca ofertas do KaBuM! via API pública.',
+    description: 'Busca ofertas do KaBuM! via AWIN Product Feed (API oficial de afiliados).',
     fields: [
-      { key: 'affiliateTag', label: 'ID de Afiliado Awin (ex: 123456)', placeholder: 'Seu ID na Awin' },
+      { key: 'awinApiKey', label: 'API Key do Feed AWIN (Create-a-Feed)', placeholder: 'Cole aqui sua API Key do feed de produtos', type: 'password' },
+      { key: 'awinAffid', label: 'Publisher ID AWIN (awinaffid)', placeholder: 'Ex: 123456 — seu ID de publisher' },
       { key: 'filters.keyword', label: 'Palavras-chave (separadas por vírgula)', placeholder: 'ex: placa de video, ssd, monitor' },
       { key: 'filters.minDiscount', label: 'Desconto mínimo (%)', placeholder: 'ex: 10', type: 'number' },
     ],
@@ -75,6 +76,9 @@ export default function PlatformConnector({ workspace, onRefresh }) {
     if (existing) {
       initialData.appId = existing.appId;
       initialData.affiliateTag = existing.affiliateTag;
+      // Campos específicos KaBuM/AWIN (não expostos via safe config — deixa vazio p/ reeditar)
+      initialData.awinApiKey = existing.awinApiKey ?? '';
+      initialData.awinAffid = existing.awinAffid ?? '';
       if (existing.filters) {
         for (const [k, v] of Object.entries(existing.filters)) {
           initialData[`filters.${k}`] = v;
@@ -196,6 +200,20 @@ export default function PlatformConnector({ workspace, onRefresh }) {
                 fontSize: 13, color: '#fbbf24',
               }}>
                 ℹ️ Você precisará autorizar o app no Mercado Livre via OAuth para ativar a busca.
+              </div>
+            )}
+
+            {/* KaBuM! AWIN Banner */}
+            {id === 'kabum' && (
+              <div style={{
+                background: 'rgba(252,107,15,0.07)', border: '1px solid rgba(252,107,15,0.2)',
+                borderRadius: 'var(--r-md)', padding: '12px 16px', marginBottom: 16,
+                fontSize: 13, color: '#fb923c',
+              }}>
+                ℹ️ Para usar o KaBuM! Afiliados, acesse{' '}
+                <a href="https://app.awin.com" target="_blank" rel="noreferrer" style={{ color: '#fb923c', textDecoration: 'underline' }}>app.awin.com</a>
+                {' '}→ Toolbox → <strong>Create-a-Feed</strong>, selecione o anunciante KaBuM! e copie sua <strong>API Key de produto</strong>.
+                O Publisher ID (awinaffid) está em <strong>Conta → Informações da Conta</strong>.
               </div>
             )}
 

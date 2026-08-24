@@ -205,9 +205,10 @@ router.post('/:id/offers/:oid/send', async (req, res) => {
 
 // POST /api/workspaces/:id/search (busca manual)
 router.post('/:id/search', async (req, res) => {
-  const { platform, filters } = req.body;
+  const { platform } = req.body;
   const { runSearch } = await import('../worker.js');
-  await runSearch(true); // Força a busca ignorando o timer de intervalo
+  // Passa o workspaceId e plataforma para buscar APENAS este workspace/plataforma
+  await runSearch(true, req.params.id, platform || null);
   res.json({ ok: true, message: 'Busca iniciada' });
 });
 
