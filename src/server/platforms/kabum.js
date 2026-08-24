@@ -17,8 +17,11 @@
 import db from '../db.js';
 
 const KABUM_AWIN_MID = '17729';
-const AWIN_FEED_LIST = (apiKey) =>
-  `https://productdata.awin.com/datafeed/list/apikey/${apiKey}`;
+
+// URL correta do feedList: usa ut.awin.com com publisherId + apiKey no path
+// (exatamente como exibido em app.awin.com → Toolbox → Create-a-Feed)
+const AWIN_FEED_LIST = (publisherId, apiKey) =>
+  `https://ut.awin.com/productdata-darwin.download/publisher/${publisherId}/${apiKey}/1/feedList`;
 
 async function getConfig(workspaceId) {
   const record = await db.workspacePlatform.findUnique({
@@ -47,9 +50,9 @@ function parseCsv(text, delimiter = ',') {
  * Passo 1: Obtém a lista de feeds disponíveis e retorna a URL de download
  * do feed do KaBuM! (merchantId 17729).
  */
-async function getKabumFeedUrl(awinApiKey) {
-  const listUrl = AWIN_FEED_LIST(awinApiKey);
-  console.log(`[KaBuM!/AWIN] Buscando lista de feeds...`);
+async function getKabumFeedUrl(awinApiKey, publisherId) {
+  const listUrl = AWIN_FEED_LIST(publisherId, awinApiKey);
+  console.log(`[KaBuM!/AWIN] Buscando lista de feeds (publisher: ${publisherId})...`);
 
   const res = await fetch(listUrl, {
     headers: { 'User-Agent': 'AfiliadoHUB/1.0' },
@@ -114,9 +117,14 @@ export async function searchOffers(workspaceId, filters = {}) {
     : [];
 
   // ── Passo 1: Descobre a URL de download do feed ─────────────────────────────
+  if (!awinAffid) {
+    console.error('[KaBuM!/AWIN] awinAffid (Publisher ID) não configurado. Configure em Plataformas → KaBuM!');
+    return [];
+  }
+
   let feedDownloadUrl;
   try {
-    feedDownloadUrl = await getKabumFeedUrl(awinApiKey);
+    feedDownloadUrl = await getKabumFeedUrl(awinApiKey, awinAffid);
   } catch (err) {
     console.error('[KaBuM!/AWIN] Erro ao obter feedList:', err.message);
     return [];
